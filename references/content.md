@@ -2,46 +2,48 @@
 
 For blogs, CMS frontends, landing pages, and SEO-focused React apps.
 
+> **Framework note:** If using Next.js, Remix, or Astro, follow the framework's routing and meta conventions first. This reference is for React SPA (Vite + React Router) projects. The splitting principles still apply regardless of framework.
+
 ## Directory Structure
 
 ```
 client/src/
-  App.jsx                          ← Routes (≤80 lines)
-  main.jsx
+  App.tsx                          ← Routes (≤80 lines)
+  main.tsx
   layouts/
-    SiteLayout.jsx                 ← Header + Footer + Outlet
-    ArticleLayout.jsx              ← Article-specific layout (sidebar, TOC)
+    SiteLayout.tsx                 ← Header + Footer + Outlet
+    ArticleLayout.tsx              ← Article-specific layout (sidebar, TOC)
   pages/
     home/
-      index.jsx                    ← Landing page
-      HeroSection.jsx
-      FeatureCards.jsx
-      Testimonials.jsx
+      index.tsx                    ← Landing page
+      HeroSection.tsx
+      FeatureCards.tsx
+      Testimonials.tsx
     blog/
-      index.jsx                    ← Article list with pagination
-      [slug].jsx                   ← Article detail (or dynamic route)
-      ArticleCard.jsx              ← List item component
-      useArticles.js               ← Fetch + filter hook
+      index.tsx                    ← Article list with pagination
+      [slug].tsx                   ← Article detail (or dynamic route)
+      ArticleCard.tsx              ← List item component
+      useArticles.ts               ← Fetch + filter hook
     about/
-      index.jsx
+      index.tsx
     contact/
-      index.jsx
-      ContactForm.jsx
-      useContact.js
+      index.tsx
+      ContactForm.tsx
+      useContact.ts
   components/
-    SEOHead.jsx                    ← Meta tags, OG, JSON-LD
-    LazyImage.jsx                  ← Intersection Observer lazy loading
-    ShareButtons.jsx               ← Social sharing
-    Newsletter.jsx                 ← Email signup
-    Breadcrumb.jsx
-    Pagination.jsx
+    SEOHead.tsx                    ← Meta tags, OG, JSON-LD
+    LazyImage.tsx                  ← Intersection Observer lazy loading
+    ShareButtons.tsx               ← Social sharing
+    Newsletter.tsx                 ← Email signup
+    Breadcrumb.tsx
+    Pagination.tsx
   hooks/
-    useSEO.js                      ← Dynamic meta tag management
-    useIntersection.js             ← Lazy loading / animation triggers
+    useSEO.ts                      ← Dynamic meta tag management
+    useIntersection.ts             ← Lazy loading / animation triggers
   services/
-    api.js
-    contentApi.js                  ← CMS/content endpoints
-    analyticsApi.js                ← Page view tracking
+    api.ts
+    contentApi.ts                  ← CMS/content endpoints
+    analyticsApi.ts                ← Page view tracking
   styles/
     global.css
     typography.css                 ← Article typography
@@ -50,47 +52,80 @@ client/src/
 
 ## Content-Specific Patterns
 
-### SEO Head Component
+### SEO Head Component (SPA)
 
-```jsx
-// components/SEOHead.jsx
-import { Helmet } from 'react-helmet-async';
+For SPAs without a framework, use `react-helmet-async` or similar. If using Next.js/Remix, use the framework's built-in `<head>` management instead.
 
-export default function SEOHead({ title, description, image, url, type = 'website', article }) {
+```tsx
+// components/SEOHead.tsx — SPA example
+// Replace with your framework's meta approach if applicable
+
+export default function SEOHead({
+  title, description, image, url, type = 'website', article,
+}: {
+  title: string;
+  description: string;
+  image?: string;
+  url?: string;
+  type?: string;
+  article?: { publishedAt: string; author: string };
+}) {
   const siteName = 'Your Site';
   const fullTitle = title ? `${title} | ${siteName}` : siteName;
 
-  return (
-    <Helmet>
-      <title>{fullTitle}</title>
-      <meta name="description" content={description} />
-      <meta property="og:title" content={fullTitle} />
-      <meta property="og:description" content={description} />
-      <meta property="og:image" content={image} />
-      <meta property="og:url" content={url} />
-      <meta property="og:type" content={type} />
-      {article && (
-        <script type="application/ld+json">
-          {JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'Article',
-            headline: title,
-            description,
-            image,
-            datePublished: article.publishedAt,
-            author: { '@type': 'Person', name: article.author },
-          })}
-        </script>
-      )}
-    </Helmet>
-  );
+  // Update document head directly (or use react-helmet-async)
+  useEffect(() => {
+    document.title = fullTitle;
+    setMeta('description', description);
+    setMeta('og:title', fullTitle);
+    setMeta('og:description', description);
+    if (image) setMeta('og:image', image);
+    if (url) setMeta('og:url', url);
+    setMeta('og:type', type);
+
+    if (article) {
+      setJsonLd({
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: title,
+        description,
+        image,
+        datePublished: article.publishedAt,
+        author: { '@type': 'Person', name: article.author },
+      });
+    }
+  }, [title, description, image, url, type, article]);
+
+  return null;
+}
+
+function setMeta(name: string, content: string) {
+  const attr = name.startsWith('og:') ? 'property' : 'name';
+  let el = document.querySelector(`meta[${attr}="${name}"]`);
+  if (!el) {
+    el = document.createElement('meta');
+    el.setAttribute(attr, name);
+    document.head.appendChild(el);
+  }
+  el.setAttribute('content', content);
+}
+
+function setJsonLd(data: object) {
+  let el = document.querySelector('script[data-seo-jsonld]');
+  if (!el) {
+    el = document.createElement('script');
+    el.setAttribute('type', 'application/ld+json');
+    el.setAttribute('data-seo-jsonld', '');
+    document.head.appendChild(el);
+  }
+  el.textContent = JSON.stringify(data);
 }
 ```
 
 ### Article Page Split
 
-```jsx
-// pages/blog/[slug].jsx — ≤400 lines
+```tsx
+// pages/blog/[slug].tsx — ≤400 lines
 import { useParams } from 'react-router-dom';
 import { useArticle } from './useArticle';
 import SEOHead from '../../components/SEOHead';

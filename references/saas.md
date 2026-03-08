@@ -1,59 +1,64 @@
 # SaaS / Admin Dashboard Architecture
 
+For admin panels, SaaS platforms, and data management apps. Examples use plain JSX — substitute your UI library (Ant Design, MUI, shadcn/ui, etc.) as needed.
+
 ## Directory Structure
 
 ```
 client/src/
-  App.jsx                          ← Routes + Providers (≤80 lines)
-  main.jsx                         ← Entry point
+  App.tsx                          ← Routes + Providers (≤80 lines)
+  main.tsx                         ← Entry point
   layouts/
-    MainLayout.jsx                 ← Sidebar + Header + Outlet (≤250 lines)
-    AuthLayout.jsx                 ← Login/register wrapper
+    MainLayout.tsx                 ← Sidebar + Header + Outlet (≤250 lines)
+    AuthLayout.tsx                 ← Login/register wrapper
   pages/
     dashboard/
-      index.jsx                    ← Dashboard page (≤400 lines)
-      DashboardCards.jsx           ← KPI cards row
-      DashboardCharts.jsx          ← Charts section
-      useDashboard.js              ← Data fetching hook
+      index.tsx                    ← Dashboard page (≤400 lines)
+      DashboardCards.tsx           ← KPI cards row
+      DashboardCharts.tsx          ← Charts section
+      useDashboard.ts              ← Data fetching hook
     users/
-      index.jsx                    ← User management page
-      UserTable.jsx                ← Table component
-      UserForm.jsx                 ← Create/edit modal
-      useUsers.js                  ← CRUD hook
+      index.tsx                    ← User management page
+      UserTable.tsx                ← Table component
+      UserForm.tsx                 ← Create/edit modal
+      useUsers.ts                  ← CRUD hook
     settings/
-      index.jsx
-      SystemConfig.jsx             ← Config editor (like admin.html equivalent)
-      useSettings.js
+      index.tsx
+      SystemConfig.tsx             ← Config editor (admin.html equivalent)
+      useSettings.ts
     [module-name]/                 ← One folder per business module
-      index.jsx
-      [SubComponent].jsx
-      use[Module].js
+      index.tsx
+      [SubComponent].tsx
+      use[Module].ts
   components/
-    DataTable.jsx                  ← Reusable table with pagination/filter/sort
-    SearchBar.jsx                  ← Global search
-    StatusBadge.jsx                ← Status indicator
-    PermissionGuard.jsx            ← RBAC wrapper
-    AuthGuard.jsx                  ← Login check wrapper
-    PageHeader.jsx                 ← Consistent page headers
-    ExportButton.jsx               ← CSV/Excel export
+    DataTable.tsx                  ← Reusable table with pagination/filter/sort
+    SearchBar.tsx                  ← Global search
+    StatusBadge.tsx                ← Status indicator
+    PermissionGuard.tsx            ← RBAC wrapper
+    AuthGuard.tsx                  ← Login check wrapper
+    PageHeader.tsx                 ← Consistent page headers
+    ExportButton.tsx               ← CSV/Excel export
   hooks/
-    useAuth.js                     ← Login/logout/token
-    usePermission.js               ← RBAC checks
-    useTable.js                    ← Shared table state (pagination, filters, sort)
-    useExport.js                   ← Export logic
+    useAuth.ts                     ← Login/logout/token
+    usePermission.ts               ← RBAC checks
+    useTable.ts                    ← Shared table state (pagination, filters, sort)
+    useExport.ts                   ← Export logic
   services/
-    api.js                         ← Axios instance (≤100 lines)
-    authApi.js
-    userApi.js
-    dashboardApi.js
-    [module]Api.js                 ← One per business module
+    api.ts                         ← HTTP client instance (≤100 lines)
+    authApi.ts
+    userApi.ts
+    dashboardApi.ts
+    [module]Api.ts                 ← One per business module
   store/
-    authStore.js                   ← User + token + permissions
-    appStore.js                    ← Sidebar collapsed, theme, notifications
+    authStore.ts                   ← User + token + permissions
+    appStore.ts                    ← Sidebar collapsed, theme, notifications
+  types/
+    user.ts
+    permission.ts
   utils/
-    format.js                      ← Date/number/currency formatting
-    validate.js                    ← Form validation rules
-    permission.js                  ← Permission constants + helpers
+    format.ts                      ← Date/number/currency formatting
+    validate.ts                    ← Form validation rules
+    permission.ts                  ← Permission constants + helpers
   styles/
     global.css
     variables.css
@@ -63,25 +68,33 @@ client/src/
 
 ### RBAC Permission Guard
 
-```jsx
-// components/PermissionGuard.jsx
+```tsx
+// components/PermissionGuard.tsx
 import { useAuthStore } from '../store/authStore';
 
-export default function PermissionGuard({ permission, children, fallback = null }) {
+export default function PermissionGuard({
+  permission,
+  children,
+  fallback = null,
+}: {
+  permission?: string;
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}) {
   const { user } = useAuthStore();
   const perms = user?.permissions || [];
 
   if (!permission || perms.includes(permission) || user?.role === 'admin') {
-    return children;
+    return <>{children}</>;
   }
-  return fallback;
+  return <>{fallback}</>;
 }
 ```
 
 Usage:
-```jsx
+```tsx
 <PermissionGuard permission="users:manage">
-  <Button onClick={handleDelete}>Delete</Button>
+  <button onClick={handleDelete}>Delete</button>
 </PermissionGuard>
 ```
 
@@ -89,80 +102,101 @@ Usage:
 
 In Node.js projects we have `admin.html`. In React SaaS, the Settings page serves the same purpose:
 
-```jsx
-// pages/settings/SystemConfig.jsx
+```tsx
+// pages/settings/SystemConfig.tsx
 import { useState, useEffect } from 'react';
-import { Form, Input, Switch, Button, message } from 'antd';
 import { getConfig, updateConfig } from '../../services/settingsApi';
 
 export default function SystemConfig() {
-  const [form] = Form.useForm();
+  const [config, setConfig] = useState({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    getConfig().then(data => form.setFieldsValue(data));
-  }, [form]);
+    getConfig().then(setConfig);
+  }, []);
 
-  const handleSave = async (values) => {
+  const handleSave = async () => {
     setLoading(true);
     try {
-      await updateConfig(values);
-      message.success('Config saved (hot-reloaded)');
+      await updateConfig(config);
+      // Show success notification (use your UI library's toast/message)
     } finally {
       setLoading(false);
     }
   };
 
+  // Render form fields from config object
+  // Use your UI library's Form component (Ant Design Form, MUI TextField, etc.)
   return (
-    <Form form={form} onFinish={handleSave} layout="vertical">
-      <Form.Item name="siteName" label="Site Name"><Input /></Form.Item>
-      <Form.Item name="maintenance" label="Maintenance Mode" valuePropName="checked"><Switch /></Form.Item>
-      {/* Auto-generate from config schema */}
-      <Button type="primary" htmlType="submit" loading={loading}>Save</Button>
-    </Form>
+    <div>
+      <h2>System Configuration</h2>
+      {Object.entries(config).map(([key, value]) => (
+        <div key={key}>
+          <label>{key}</label>
+          <input
+            value={String(value)}
+            onChange={e => setConfig(prev => ({ ...prev, [key]: e.target.value }))}
+          />
+        </div>
+      ))}
+      <button onClick={handleSave} disabled={loading}>
+        {loading ? 'Saving...' : 'Save'}
+      </button>
+    </div>
   );
 }
 ```
 
 ### Shared DataTable Component
 
-```jsx
-// components/DataTable.jsx — Reusable across all pages (≤250 lines)
-import { Table, Input, Space } from 'antd';
-import { useState } from 'react';
+```tsx
+// components/DataTable.tsx — Reusable across all pages (≤250 lines)
+// Wrap your UI library's table (Ant Design Table, MUI DataGrid, TanStack Table, etc.)
+
+interface DataTableProps {
+  columns: any[];
+  data: any[];
+  loading?: boolean;
+  pagination?: { current: number; pageSize: number; total: number };
+  onPageChange?: (page: number) => void;
+  onSearch?: (query: string) => void;
+  extra?: React.ReactNode;  // toolbar buttons (export, batch actions)
+}
 
 export default function DataTable({
-  columns, data, loading, pagination,
-  onPageChange, onSearch, rowSelection,
-  extra,  // extra toolbar buttons (export, batch actions)
-}) {
+  columns, data, loading, pagination, onPageChange, onSearch, extra,
+}: DataTableProps) {
   const [search, setSearch] = useState('');
 
   return (
     <div>
-      <Space style={{ marginBottom: 16 }}>
-        <Input.Search
+      <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+        <input
           placeholder="Search..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          onSearch={onSearch}
-          allowClear
+          onKeyDown={e => e.key === 'Enter' && onSearch?.(search)}
         />
         {extra}
-      </Space>
-      <Table
-        columns={columns}
-        dataSource={data}
-        loading={loading}
-        pagination={{
-          ...pagination,
-          onChange: onPageChange,
-          showSizeChanger: true,
-          showTotal: total => `Total ${total}`,
-        }}
-        rowSelection={rowSelection}
-        rowKey="id"
-      />
+      </div>
+      {/* Replace with your UI library's Table component */}
+      <table>
+        <thead>
+          <tr>{columns.map(col => <th key={col.key}>{col.title}</th>)}</tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <tr><td colSpan={columns.length}>Loading...</td></tr>
+          ) : (
+            data.map(row => (
+              <tr key={row.id}>
+                {columns.map(col => <td key={col.key}>{col.render ? col.render(row) : row[col.key]}</td>)}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+      {/* Add pagination controls */}
     </div>
   );
 }
@@ -172,10 +206,10 @@ export default function DataTable({
 
 When adding a new business module:
 
-1. Create `pages/[module]/index.jsx` — page component (≤400 lines)
-2. Create `pages/[module]/use[Module].js` — data hook (≤150 lines)
-3. Create `services/[module]Api.js` — API calls (≤200 lines)
-4. Add lazy route in `App.jsx`
-5. Add menu item in `MainLayout.jsx`
-6. Add permission constant in `utils/permission.js`
+1. Create `pages/[module]/index.tsx` — page component (≤400 lines)
+2. Create `pages/[module]/use[Module].ts` — data hook (≤150 lines)
+3. Create `services/[module]Api.ts` — API calls (≤200 lines)
+4. Add lazy route in `App.tsx`
+5. Add menu item in `MainLayout.tsx`
+6. Add permission constant in `utils/permission.ts`
 7. Wrap with `<PermissionGuard>` if needed
